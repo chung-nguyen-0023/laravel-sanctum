@@ -12,4 +12,4 @@ $user->createToken('developer-access', ['categories-list']);
 ```
 
 # Viewing
-4:28 https://www.youtube.com/watch?v=gyWLxpYWxFQ
+done https://www.youtube.com/watch?v=gyWLxpYWxFQ
