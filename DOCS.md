@@ -190,3 +190,14 @@ class DatabaseSeeder extends Seeder
 Ta chạy câu lệnh `php artisan db:seed` để tạo dữ liệu mẫu cho bảng `User` và bảng `Category`
 
 # Tạo API Tokens
+Để tạo Token, chúng ta cần tạo 1 api `auth` để login. Khi login thành công sẽ trả về cho người dùng 1 token để truy cập vào ứng dụng. Chúng ta mở file `routes/api.php` và thêm api `auth` như sau:
+```php
+Route::post('auth', [AuthController::class, 'login'])->name('login');
+```
+
+Tiếp theo chúng ta tạo 1 `AuthController` bằng câu lệnh
+```
+php artisan make:controller Api/AuthController
+```
+
+
