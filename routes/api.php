@@ -11,6 +11,7 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
 });
 
 Route::post('auth', [AuthController::class, 'login'])->name('login');
+Route::post('register', [AuthController::class, 'register'])->name('register');
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('users/tokens', [UsersController::class, 'getAllTokens']);
     Route::delete('users/tokens', [UsersController::class, 'deleteAllTokens']);
