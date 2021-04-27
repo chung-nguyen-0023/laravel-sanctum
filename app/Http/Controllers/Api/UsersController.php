@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Models\User;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\UserResource;
-use App\Http\Resources\TokenResource;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
 
 class UsersController extends Controller
 {
@@ -16,7 +16,10 @@ class UsersController extends Controller
             abort(403, 'Unauthorized');
         }
         $users = User::all();
-        return UserResource::collection($users);
+        return response()->json([
+            'status_code' => 200,
+            'data' => $users,
+        ]);
     }
 
     public function show($id)
@@ -25,7 +28,10 @@ class UsersController extends Controller
             abort(403, 'Unauthorized');
         }
         $user = User::find($id);
-        return new UserResource($user);
+        return response()->json([
+            'status_code' => 200,
+            'data' => $user,
+        ]);
     }
 
     public function store(Request $request)
@@ -103,7 +109,7 @@ class UsersController extends Controller
 
         return response()->json([
             'status_code' => 200,
-            'user' => $user,
+            'data' => $user,
         ]);
     }
 
@@ -128,7 +134,10 @@ class UsersController extends Controller
             abort(403, 'Unauthorized');
         }
         $tokens = auth()->user()->tokens;
-        return TokenResource::collection($tokens);
+        return response()->json([
+            'status_code' => 200,
+            'data' => $tokens,
+        ]);
     }
 
     public function deleteAllTokens()
