@@ -190,9 +190,9 @@ class DatabaseSeeder extends Seeder
 Ta chạy câu lệnh `php artisan db:seed` để tạo dữ liệu mẫu cho bảng `User` và bảng `Category`
 
 # Tạo API Tokens
-Để tạo Token, chúng ta cần tạo 1 api `auth` để login. Khi login thành công sẽ trả về cho người dùng 1 token để truy cập vào ứng dụng. Chúng ta mở file `routes/api.php` và thêm api `auth` như sau:
+Để tạo Token, chúng ta cần tạo 1 api `register` để đăng ký. Khi đăng ký thành công sẽ trả về cho người dùng 1 token để truy cập vào ứng dụng. Chúng ta mở file `routes/api.php` và thêm api `register` như sau:
 ```php
-Route::post('auth', [AuthController::class, 'login'])->name('login');
+Route::post('register', [AuthController::class, 'register'])->name('register');
 ```
 
 Tiếp theo chúng ta tạo 1 `AuthController` bằng câu lệnh
@@ -200,4 +200,291 @@ Tiếp theo chúng ta tạo 1 `AuthController` bằng câu lệnh
 php artisan make:controller Api/AuthController
 ```
 
+Nội dung file `AuthController`
+```php
+<?php
 
+namespace App\Http\Controllers\Api;
+
+use App\Models\User;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+
+class AuthController extends Controller
+{
+    public function register(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'role' => ['required', 'regex:/[admin|user-management|category-management]/'],
+            'email' => 'required',
+            'password' => 'required',
+            'name' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status_code' => 500,
+                'message' => 'Validate fail',
+                'error' => $validator->errors(),
+            ]);
+        }
+
+        if (User::where('email', $request->get('email'))->first()) {
+            return response()->json([
+                'status_code' => 500,
+                'message' => 'Email already exist',
+            ]);
+        }
+        $data                 = $request->all();
+        $user                 = User::create($data);
+        $user->password       = Hash::make($data['password']);
+        $user->save();
+
+        $token = '';
+        switch ($request->get('role')) {
+            case 'admin':
+                $token = $user->createToken('authToken')->plainTextToken;
+                break;
+            case 'user-management':
+                $user_permissions = [
+                    'users-view',
+                    'users-create',
+                    'users-update',
+                    'users-delete',
+                ];
+                $token = $user->createToken('authToken', $user_permissions)->plainTextToken;
+                break;
+            case 'category-management':
+                $category_permissions = [
+                    'categories-view',
+                    'categories-create',
+                    'categories-update',
+                    'categories-delete',
+                ];
+                $token = $user->createToken('authToken', $category_permissions)->plainTextToken;
+                break;
+        }
+
+        return response()->json([
+            'status_code' => 200,
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+        ]);
+    }
+}
+```
+
+Ở trong method `register` chúng ta xử lý cho 3 trường hợp của `role` là `admin`, `user-management`, `category-management`. Với role là `admin` thì có toàn quyền (permission) xử lý, còn role `user-management` chỉ có quyền (permission) `users-view`, `users-create`, `users-update` và `users-delete` tương ứng với việc `Xem thông tin người dùng`, `Thêm mới người dùng`, `Cập nhật thông tin người dùng` và `Xoá người dùng`. Tương tự role `category-management` có các quyền (permission) `categories-view`, `categories-create`, `categories-update` và `categories-delete` tương ứng với việc `Xem thông tin danh mục`, `Thêm mới danh mục`, `Cập nhật danh mục` và `Xoá danh mục`.
+
+Tiếp theo, chúng ta sẽ tạo 3 tài khoản cho 3 role `admin`, `user-management` và `category-management`
+
+```Admin Role```
+![register_admin_role](./screen_shot/register_admin_role.png)
+
+```User Management Role```
+![register_user_role](./screen_shot/register_user_role.png)
+
+```Category Management Role```
+![register_category_role](./screen_shot/register_category_role.png)
+
+Để kiểm tra các permission mà chúng ta đã tạo ở bên trên có hoạt động đúng hay không thì chúng ta cần tạo 2 controller là `UserController` và `CategoryController`. 
+Bên trong `UserController` sẽ có các hàm `CRUD` cho `User`. Tương tự bên trong `CategoryController` cũng sẽ có các hàm `CRUD` cho `Category`.
+
+Chúng ta tạo file `UserController` thông qua câu lệnh terminal
+```
+php artisan make:controller Api/UserController
+```
+
+Bên trong file `UserController` có các method tương ứng với các chức năng
+|Method|Action|Method|
+|------|------|------|
+|index|Hiển thị danh sách User|GET|
+|show|Hiển thị chi tiết User|GET|
+|store|Thêm mới User|POST|
+|update|Cập nhật User|PUT|
+|destroy|Xoá 1 User|DELETE|
+|getAllTokens|Hiển thị tất cả token của 1 User|GET|
+|deleteAllTokens|Xoá tất cả token của 1 User|DELETE|
+|deleteToken|Xoá 1 token của User|DELETE|
+
+Nội dung file `UserController`
+```php
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Models\User;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use App\Http\Resources\UserResource;
+use App\Http\Resources\TokenResource;
+
+class UsersController extends Controller
+{
+    public function index()
+    {
+        if (!auth()->user()->tokenCan('users-view')) {
+            abort(403, 'Unauthorized');
+        }
+        $users = User::all();
+        return UserResource::collection($users);
+    }
+
+    public function show($id)
+    {
+        if (!auth()->user()->tokenCan('users-view')) {
+            abort(403, 'Unauthorized');
+        }
+        $user = User::find($id);
+        return new UserResource($user);
+    }
+
+    public function store(Request $request)
+    {
+        if (!auth()->user()->tokenCan('users-create')) {
+            abort(403, 'Unauthorized');
+        }
+
+        $validator = Validator::make($request->all(), [
+            'role' => ['required', 'regex:/[admin|user-management|category-management]/'],
+            'email' => 'required',
+            'password' => 'required',
+            'name' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status_code' => 500,
+                'message' => 'Validate fail',
+                'error' => $validator->errors(),
+            ]);
+        }
+
+        if (User::where('email', $request->get('email'))->first()) {
+            return response()->json([
+                'status_code' => 500,
+                'message' => 'Email already exist',
+            ]);
+        }
+        $data                 = $request->all();
+        $user                 = User::create($data);
+        $user->password       = Hash::make($data['password']);
+        $user->save();
+
+        $token = '';
+        switch ($request->get('role')) {
+            case 'admin':
+                $token = $user->createToken('authToken')->plainTextToken;
+                break;
+            case 'user-management':
+                $user_permissions = [
+                    'users-view',
+                    'users-create',
+                    'users-update',
+                    'users-delete',
+                ];
+                $token = $user->createToken('authToken', $user_permissions)->plainTextToken;
+                break;
+            case 'category-management':
+                $category_permissions = [
+                    'categories-view',
+                    'categories-create',
+                    'categories-update',
+                    'categories-delete',
+                ];
+                $token = $user->createToken('authToken', $category_permissions)->plainTextToken;
+                break;
+        }
+
+        return response()->json([
+            'status_code' => 200,
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+        ]);
+    }
+
+    public function update($id, Request $request)
+    {
+        if (!auth()->user()->tokenCan('users-update')) {
+            abort(403, 'Unauthorized');
+        }
+
+        $user = User::findOrFail($id);
+        $user->update($request->all());
+
+        return response()->json([
+            'status_code' => 200,
+            'user' => $user,
+        ]);
+    }
+
+    public function destroy($id)
+    {
+        if (!auth()->user()->tokenCan('users-delete')) {
+            abort(403, 'Unauthorized');
+        }
+
+        $user = User::findOrFail($id);
+        $user->delete();
+
+        return response()->json([
+            'status_code' => 200,
+            'success' => true,
+        ]);
+    }
+
+    public function getAllTokens()
+    {
+        if (!auth()->user()->tokenCan('users-update')) {
+            abort(403, 'Unauthorized');
+        }
+        $tokens = auth()->user()->tokens;
+        return TokenResource::collection($tokens);
+    }
+
+    public function deleteAllTokens()
+    {
+        if (!auth()->user()->tokenCan('users-update')) {
+            abort(403, 'Unauthorized');
+        }
+        auth()->user()->tokens()->delete();
+        return response()->json([
+            'status_code' => 200,
+            'success' => true,
+        ]);
+    }
+
+    public function deleteToken($tokenId)
+    {
+        if (!auth()->user()->tokenCan('users-update')) {
+            abort(403, 'Unauthorized');
+        }
+        auth()->user()->tokens()->where('id', $tokenId)->delete();
+        return response()->json([
+            'status_code' => 200,
+            'success' => true,
+        ]);
+    }
+}
+```
+
+Tiếp theo chúng ta tạo file `CategoryController` thông qua câu lệnh terminal
+```
+php artisan make:controller Api/CategoryController
+```
+
+Bên trong file `CategoryController` có các method tương ứng với các chức năng
+|Method|Action|Method|
+|------|------|------|
+|index|Hiển thị danh sách Category|GET|
+|show|Hiển thị chi tiết Category|GET|
+|store|Thêm mới Category|POST|
+|update|Cập nhật Category|PUT|
+|destroy|Xoá 1 Category|DELETE|
+
+Nội dung file `CategoryController`
+```php
+
+```
