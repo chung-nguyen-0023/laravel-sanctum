@@ -217,7 +217,7 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'role' => ['required', 'regex:/[admin|user-management|category-management]/'],
+            'role' => 'required',
             'email' => 'required',
             'password' => 'required',
             'name' => 'required',
@@ -298,7 +298,7 @@ php artisan make:controller Api/UserController
 ```
 
 Bên trong file `UserController` có các method tương ứng với các chức năng
-|Method|Action|Method|
+|Function|Action|Method|
 |------|------|------|
 |index|Hiển thị danh sách User|GET|
 |show|Hiển thị chi tiết User|GET|
@@ -354,7 +354,7 @@ class UsersController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'role' => ['required', 'regex:/[admin|user-management|category-management]/'],
+            'role' => 'required',
             'email' => 'required',
             'password' => 'required',
             'name' => 'required',
@@ -495,5 +495,125 @@ Bên trong file `CategoryController` có các method tương ứng với các ch
 
 Nội dung file `CategoryController`
 ```php
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Category;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+
+class CategoryController extends Controller
+{
+    public function index()
+    {
+        if (!auth()->user()->tokenCan('categories-view')) {
+            abort(403, 'Unauthorized');
+        }
+        $categories = Category::get();
+        return response()->json([
+            'status_code' => 200,
+            'data' => $categories,
+        ]);
+    }
+
+    public function show($id)
+    {
+        if (!auth()->user()->tokenCan('categories-view')) {
+            abort(403, 'Unauthorized');
+        }
+        $category = Category::find($id);
+        return response()->json([
+            'status_code' => 200,
+            'data' => $category,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        if (!auth()->user()->tokenCan('categories-create')) {
+            abort(403, 'Unauthorized');
+        }
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status_code' => 500,
+                'message' => 'Validate fail',
+                'error' => $validator->errors(),
+            ]);
+        }
+
+        if (Category::where('name', $request->get('name'))->first()) {
+            return response()->json([
+                'status_code' => 500,
+                'message' => 'Category already exist',
+            ]);
+        }
+        $data = $request->all();
+        $data['slug'] = Str::slug($data['name'], '-');
+        $category = Category::create($data);
+
+        return response()->json([
+            'status_code' => 200,
+            'data' => $category,
+        ]);
+    }
+
+    public function update($id, Request $request)
+    {
+        if (!auth()->user()->tokenCan('categories-update')) {
+            abort(403, 'Unauthorized');
+        }
+
+        $category = Category::findOrFail($id);
+        $category->update($request->all());
+
+        return response()->json([
+            'status_code' => 200,
+            'data' => $category,
+        ]);
+    }
+
+    public function destroy($id)
+    {
+        if (!auth()->user()->tokenCan('categories-delete')) {
+            abort(403, 'Unauthorized');
+        }
+
+        $category = Category::findOrFail($id);
+        $category->delete();
+
+        return response()->json([
+            'status_code' => 200,
+            'success' => true,
+        ]);
+    }
+}
+```
+
+Như các bạn đã thấy bên trong mỗi method của file `UserController` và `CategoryController` đều có đoạn code để check `perrmission` của User có quyền thực hiện action tương ứng đó không. Ở bên trên chúng ta đã tạo 3 User với 3 Role khác nhau và mỗi Role có 1 nhóm permission nhất định. Giờ chúng ta sẽ test xem những role đó có hoạt động như mong đợi không nhé. Thông tin User kèm theo perrmission:
+```
+Role: admin
+Token: 1|ELU6ZIb7y77SO1Bwupfb9fUS9aDJfagtXLLy0paY
+Permissions: All Permissions
+```
 
 ```
+Role: user-management
+Token: 2|q7XWnRRXOMvi5XgJLSGp3oerTc2tPvUiQKbXK7s8
+Permissions: All Permissions
+```
+
+```
+Role: category-management
+Token: 3|I3D3Fok7Ma8hWDZrWPQE6OrD6w7gOXQkypTpnkqV
+Permissions: All Permissions
+```
+
+Vì role `admin` là role có tất cả các `permission` nên chúng ta sẽ sử dụng 2 role là `user-management` và `category-management` để test.

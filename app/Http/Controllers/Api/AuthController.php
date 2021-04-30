@@ -57,7 +57,7 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'role' => ['required', 'regex:/[admin|user-management|category-management]/'],
+            'role' => 'required',
             'email' => 'required',
             'password' => 'required',
             'name' => 'required',
