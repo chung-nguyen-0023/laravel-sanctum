@@ -616,4 +616,23 @@ Token: 3|I3D3Fok7Ma8hWDZrWPQE6OrD6w7gOXQkypTpnkqV
 Permissions: All Permissions
 ```
 
-Vì role `admin` là role có tất cả các `permission` nên chúng ta sẽ sử dụng 2 role là `user-management` và `category-management` để test.
+Vì role `admin` là role có tất cả các `permission` nên chúng ta sẽ sử dụng 2 role là `user-management` và `category-management` để test. 
+
+Đầu tiên chúng ta sẽ dùng role `user-management` và token tương ứng của role `user-management` để gọi api `index` trong `UserController`
+
+![view-user-index](./screen_shot/view-user-index.png)
+
+Như các bạn đã thấy, chúng ta có thể thực hiện được việc lấy ra danh sách User vì role `user-management` có permission để làm việc đó
+
+Tiếp theo, chúng ta sẽ dùng role `user-management` và token tương ứng của role `user-management` để gọi api `index` trong `CategoryController`
+![user-view-category-list](./screen_shot/user-view-category-list.png)
+
+Trong hình, do user có role `user-management` không có permission `categories-view` nên không thể lấy được danh sách thông tin của `Category`.
+
+# Kết luận
+Qua bài viết trên mình đã giới thiệu đến các bạn sơ qua về khái niệm và cách sử dụng của `Laravel Sanctum`. Hy vọng bài viết sẽ giúp ích cho các bạn trong quá trình học tập và làm việc.
+
+Cảm ơn các bạn đã đọc bài
+
+Nguồn tham khảo:
+- https://laravel.com/docs/8.x/sanctum
